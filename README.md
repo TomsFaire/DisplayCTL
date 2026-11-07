@@ -46,6 +46,9 @@ Manual On/Off holds until the next scheduled change.
 - macOS: allow incoming connections for the Python binary if the Application Firewall prompts; confirm outbound access to displays after a reboot with nobody logged in; keep NTP on.
 - Global Caché serial adapters and per-day exceptions/holidays are **not in the MVP**.
 
+## Multi-homed hosts / subnet changes
+Set `DPS_SOURCE_IP=<local ip>` to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
+
 ## Security notes
 PIN login (scrypt-hashed, 5 attempts/min/IP lockout), signed HttpOnly session cookie, CSRF header on all writes, optional `web.allowed_cidrs`.
 Plain HTTP — put it behind TLS/Caddy if the network isn't trusted. `/healthz` is unauthenticated and returns no secrets.

@@ -19,7 +19,8 @@ input,select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-ra
 <div id="login" class="card hide"><h2>Display Power Control</h2><div class="mut">Enter PIN</div>
 <form onsubmit="login();return false"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" autofocus><button class="p" style="width:100%">Unlock</button></form><div id="lerr" class="err"></div></div>
 <div id="app" class="hide">
-<header><h1>🖥 <span id="site"></span></h1><div class="row"><span class="mut" id="clock"></span><button onclick="logout()">Lock</button></div></header>
+<header><h1>🖥 <span id="site"></span></h1><div class="row"><span class="mut" id="clock"></span><button id="autob" onclick="toggleAuto()"></button><button onclick="logout()">Lock</button></div></header>
+<div id="pause" class="hide" style="background:var(--warn);color:#fff;text-align:center;padding:8px;font-weight:600">⏸ Automation PAUSED — the schedule will not send any commands (manual buttons still work)</div>
 <main>
 <div class="card"><div class="row" style="justify-content:space-between"><h2>Displays</h2>
 <div class="row"><span class="mut" id="next"></span><button onclick="bulk('on')">All On</button><button onclick="bulk('off')">All Off</button></div></div>
@@ -42,9 +43,11 @@ async function api(p,body){const r=await fetch(p,{method:body===undefined?'GET':
  if(r.status===401){show(false);throw 0}const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
 function show(on){$('app').classList.toggle('hide',!on);$('login').classList.toggle('hide',on)}
 async function login(){try{await api('/api/login',{pin:$('pin').value});$('lerr').textContent='';$('pin').value='';show(true);refresh()}catch(e){if(e)$('lerr').textContent=e.message}}
+async function toggleAuto(){const en=!S.automation;if(en&&!confirm('Resume automation? Displays will be set to the state the schedule says they should be in right now.'))return;await api('/api/automation',{enabled:en});refresh()}
 async function logout(){await api('/api/logout',{});show(false)}
 async function refresh(){try{S=await api('/api/state')}catch(e){return}show(true);render()}
 function render(){
+ $('pause').classList.toggle('hide',S.automation);$('autob').textContent=S.automation?'⏸ Pause automation':'▶ Resume automation';$('autob').className=S.automation?'':'p';
  $('site').textContent=S.site.name+' displays';$('clock').textContent=S.now+' ('+S.site.timezone+')';
  $('next').textContent=S.next_change?'Next: '+S.next_change.state+' '+S.next_change.at:'No upcoming change';
  $('rows').innerHTML=S.displays.map(d=>{const st=d.status;return `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.ip)}:${d.port}</td><td>${d.driver=='lg_signage'?'LG':'Samsung'}</td>

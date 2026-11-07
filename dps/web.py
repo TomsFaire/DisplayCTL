@@ -81,7 +81,7 @@ def make_handler(svc):
                 if method == "GET" and path == "/":
                     return self._send(200, page, "text/html; charset=utf-8")
                 if method == "GET" and path == "/healthz":
-                    return self._send(200, {"ok": True, "last_tick": svc.last_tick})
+                    return self._send(200, {"ok": True, "last_tick": svc.last_tick, "automation": svc.cfg["automation"]["enabled"]})
                 if method == "POST" and path == "/api/login":
                     return self._login()
                 if not self._authed():
@@ -120,6 +120,11 @@ def make_handler(svc):
                 return self._send(200, svc.snapshot())
             if method == "POST" and path == "/api/logout":
                 return self._send(200, {"ok": True}, headers=[("Set-Cookie", "dps=; Path=/; Max-Age=0")])
+            if method == "POST" and path == "/api/automation":
+                en = bool(self._json()["enabled"])
+                svc.mutate(lambda c: c["automation"].__setitem__("enabled", en))
+                svc.event("user", "ALL", "AUTOMATION " + ("ENABLED" if en else "PAUSED"), "OK")
+                return self._send(200, {"ok": True})
             if method == "POST" and path == "/api/schedule":
                 body = self._json()
                 def f(cfg):

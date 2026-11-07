@@ -141,7 +141,12 @@ class Service:
         now = self.now()
         want = intended(self.cfg, now)
         todo = []
-        for d in self.cfg["displays"]:
+        if not self.cfg["automation"]["enabled"]:
+            self.last_intended.clear()  # on re-enable, reconcile to the current intended state
+            todo_disabled = True
+        else:
+            todo_disabled = False
+        for d in ([] if todo_disabled else self.cfg["displays"]):
             did = d["id"]
             if not d.get("enabled", True):
                 continue
@@ -174,6 +179,6 @@ class Service:
         want = "ON" if intended(self.cfg, now) else "OFF"
         rows = [{**d, **self._st(d["id"]), "intended": want if d.get("enabled", True) else "—"}
                 for d in self.cfg["displays"]]
-        return {"site": self.cfg["site"], "now": now.strftime("%a %H:%M"), "schedule": self.cfg["schedule"],
+        return {"site": self.cfg["site"], "automation": self.cfg["automation"]["enabled"], "now": now.strftime("%a %H:%M"), "schedule": self.cfg["schedule"],
                 "next_change": nc and {"at": nc[0].strftime("%a %H:%M"), "state": nc[1]},
                 "displays": rows, "events": list(self.events)[:50], "last_tick": self.last_tick}

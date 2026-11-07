@@ -40,3 +40,17 @@ def test_driver_against_fake_mdc():
     r = D.get_power(d); assert r.ok and r.power == "ON" and r.verified
     srv.shutdown()
     assert not D.get_power(d, timeout=1).ok  # refused -> failure, not crash
+
+def test_automation_pause(tmp_path):
+    p = tmp_path / "c.json"
+    cfg = C.default_config(); cfg["automation"]["enabled"] = False
+    cfg["displays"] = [{"id": "a", "name": "A", "ip": "127.0.0.1", "driver": "samsung_mdc", "port": 1, "display_id": 0}]
+    C.save(p, cfg)
+    svc = S.Service(p); calls = []
+    svc.apply = lambda *a: calls.append(a)
+    svc.tick(); svc.pool.shutdown(wait=True)
+    assert calls == []
+    svc.mutate(lambda c: c["automation"].__setitem__("enabled", True))
+    svc.pool = __import__("concurrent.futures").futures.ThreadPoolExecutor(2)
+    svc.tick(); svc.pool.shutdown(wait=True)
+    assert len(calls) == 1

@@ -19,6 +19,7 @@ def default_config():
     return {
         "site": {"name": "Office", "timezone": "America/New_York"},
         "web": {"bind": "0.0.0.0", "port": 8085, "allowed_cidrs": []},
+        "automation": {"enabled": True},
         "pin_hash": None,
         "session_secret": secrets.token_hex(32),
         "schedule": {d: {"enabled": d not in ("sat", "sun"), "on": "06:00", "off": "20:00"} for d in DAYS},
@@ -83,6 +84,7 @@ def load(path):
     for k in ("site", "web"):
         base[k].update(cfg.get(k, {}))
     base["schedule"].update(cfg.get("schedule", {}))
+    base["automation"].update(cfg.get("automation", {}))
     base["pin_hash"] = cfg.get("pin_hash")
     base["displays"] = cfg.get("displays", [])
     return validate(base)

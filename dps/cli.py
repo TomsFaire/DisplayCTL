@@ -151,6 +151,14 @@ def cmd_schedule(a):
         print(f"{d}  {s['on']} - {s['off']}" if s["enabled"] else f"{d}  (off all day)")
 
 
+def cmd_automation(a):
+    p, cfg = _load(a)
+    if a.state:
+        cfg["automation"]["enabled"] = a.state == "on"
+        cfgmod.save(p, cfg)
+    print("automation:", "ENABLED" if cfg["automation"]["enabled"] else "PAUSED")
+
+
 def cmd_probe(a):
     d = {"driver": a.driver, "ip": a.host, "port": a.port or cfgmod.DEFAULT_PORTS[a.driver],
          "display_id": a.id, "mac": ""}
@@ -178,6 +186,7 @@ def main(argv=None):
     s = sub.add_parser("schedule", help="show/set weekly schedule")
     s.add_argument("--days", default="weekdays", help="all|weekdays|weekend|mon,tue,..."); s.add_argument("--on", default="06:00"); s.add_argument("--off", default="20:00")
     s.add_argument("--set", nargs="?", const="hours", choices=["hours", "off-all"], help="apply hours (or disable) for --days"); s.set_defaults(f=cmd_schedule)
+    s = sub.add_parser("automation", help="show/pause/resume all scheduled actions"); s.add_argument("state", nargs="?", choices=["on", "off"]); s.set_defaults(f=cmd_automation)
     s = sub.add_parser("probe", help="ad-hoc test of a display"); s.add_argument("--driver", choices=cfgmod.DRIVERS, required=True)
     s.add_argument("--host", required=True); s.add_argument("--port", type=int); s.add_argument("--id", type=int, default=0); s.set_defaults(f=cmd_probe)
     a = ap.parse_args(argv)
