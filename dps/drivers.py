@@ -2,9 +2,13 @@
 
 # VERIFY: all constants below against the actual displays during commissioning.
 """
+import os
 import socket
 import time
 from dataclasses import dataclass
+
+
+SOURCE_IP = ""  # set from config network.source_ip (env DPS_SOURCE_IP overrides)
 
 
 @dataclass
@@ -20,7 +24,9 @@ class Result:
 
 def _txrx(host, port, data, timeout):
     t0 = time.time()
-    with socket.create_connection((host, port), timeout=timeout) as s:
+    src = os.environ.get("DPS_SOURCE_IP") or SOURCE_IP  # optional: force the local address
+    with socket.create_connection((host, port), timeout=timeout,
+                                  source_address=(src, 0) if src else None) as s:
         s.settimeout(timeout)
         s.sendall(data)
         try:
@@ -117,7 +123,7 @@ def get_power(drv, timeout=5):
     return (_mdc if drv["driver"] == "samsung_mdc" else _lg)(drv, None, timeout)
 
 
-def set_power(drv, on, timeout=5, retries=2, backoff=(2, 5)):
+def set_power(drv, on, timeout=5, retries=2, backoff=(2, 5), verify_s=45):
     """Send explicit on/off (never toggle), retry, then confirm with a status query."""
     fn = _mdc if drv["driver"] == "samsung_mdc" else _lg
     res = Result(False, error="not attempted")
@@ -133,13 +139,22 @@ def set_power(drv, on, timeout=5, retries=2, backoff=(2, 5)):
         if attempt < retries:
             time.sleep(backoff[min(attempt, len(backoff) - 1)])
     if res.ok:
-        time.sleep(2)
-        chk = get_power(drv, timeout)
-        if chk.ok and chk.power in ("ON", "OFF"):
-            res.power = chk.power
-            res.verified = chk.power == ("ON" if on else "OFF")
-            if not res.verified:
-                res.error = f"sent {'ON' if on else 'OFF'} but display reports {chk.power}"
-        else:
-            res.power = "ON" if on else "OFF"  # sent, unverified
+        # Panels take a while to boot/shut down and may refuse connections meanwhile:
+        # poll until the display reports the target state (or give up -> unverified).
+        want = "ON" if on else "OFF"
+        deadline = time.time() + (verify_s if on else verify_s / 2)
+        seen = "UNKNOWN"
+        while time.time() < deadline:
+            time.sleep(3)
+            chk = get_power(drv, timeout)
+            if chk.ok and chk.power in ("ON", "OFF"):
+                seen = chk.power
+                if seen == want:
+                    break
+        res.power = seen if seen != "UNKNOWN" else want
+        res.verified = seen == want
+        if seen == "UNKNOWN":
+            res.error = "command accepted but status could not be confirmed"
+        elif not res.verified:
+            res.error = f"sent {want} but display reports {seen}"
     return res

@@ -1,0 +1,15 @@
+# HTTPS front end for the DPS web UI. Rendered by install-https.sh (__IP__ is replaced).
+{
+	admin off
+	storage file_system /usr/local/var/caddy
+	skip_install_trust          # clients trust the root cert via MDM; don't touch the host keychain
+	local_certs
+	auto_https disable_redirects
+}
+
+https://__IP__, https://localhost {
+	tls internal
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy 127.0.0.1:__PORT__   # Caddy sets X-Forwarded-For/-Proto, which dps trusts from loopback only
+}

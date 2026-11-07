@@ -7,3 +7,5 @@ Icon
 .DS_Store
 .claude/
 Icon?
+local/
+build/

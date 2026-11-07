@@ -5,12 +5,12 @@ Standard library only — no third-party runtime dependencies.
 
 ## Install (macOS, starts at boot before login)
 ```
-sudo deploy/macos/install.sh 1234        # 1234 = the UI PIN (omit to set later)
+sudo deploy/macos/install.sh <PIN>       # <PIN> = 4-12 digit UI PIN (omit to set later)
 ```
 Creates a hidden `_dps` user, installs to `/opt/dps`, config in `/usr/local/etc/dps/config.json`, logs in `/usr/local/var/dps/`,
-and registers a LaunchDaemon (`com.faire.dps`) with RunAtLoad + KeepAlive. Linux: `sudo deploy/linux/install.sh 1234`.
+and registers a LaunchDaemon (`com.faire.dps`) with RunAtLoad + KeepAlive. Linux: `sudo deploy/linux/install.sh <PIN>`.
 
-Open `http://<mac-hostname>:8085`, enter the PIN.
+Open `http://<mac-hostname>:8000`, enter the PIN.
 
 ## Web UI
 * **Displays** — room, IP, power state, status, last action; On / Off / Test (shows raw TX/RX bytes) / Edit / remove; All On / All Off.
@@ -45,6 +45,20 @@ Manual On/Off holds until the next scheduled change.
 - Use **Test** in the UI / `dps probe` on each model before relying on the schedule.
 - macOS: allow incoming connections for the Python binary if the Application Firewall prompts; confirm outbound access to displays after a reboot with nobody logged in; keep NTP on.
 - Global Caché serial adapters and per-day exceptions/holidays are **not in the MVP**.
+
+## Multi-homed hosts / subnet changes
+Set `network.source_ip` in the config (or `dps source-ip <ip>`, or env `DPS_SOURCE_IP`) to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
+
+## HTTPS on :443 (Caddy, self-signed internal CA)
+```
+brew install caddy                          # as your normal user
+sudo deploy/macos/install.sh <PIN>          # redeploys the app (needed once for proxy-header support)
+sudo deploy/macos/install-https.sh [IP]     # default IP = en0; serves https://IP/ and https://localhost/
+```
+Caddy runs as `_dps` (`com.faire.dps-caddy`), terminates TLS, and proxies to `127.0.0.1:<web.port>`. Once HTTPS answers, the script rebinds dps to
+loopback so plain HTTP is no longer reachable from the network. dps trusts `X-Forwarded-For/-Proto` **only from loopback** (per-client lockout,
+`allowed_cidrs`, `Secure` cookie). Distribute `/usr/local/var/caddy/pki/authorities/local/root.crt` to clients via MDM to avoid the browser warning.
+The cert is tied to the IP — give the host a DHCP reservation, or re-run `install-https.sh <new-ip>`.
 
 ## Security notes
 PIN login (scrypt-hashed, 5 attempts/min/IP lockout), signed HttpOnly session cookie, CSRF header on all writes, optional `web.allowed_cidrs`.

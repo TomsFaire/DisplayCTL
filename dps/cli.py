@@ -15,7 +15,9 @@ from . import drivers
 
 def _load(args):
     p = cfgmod.config_path(args.config)
-    return p, cfgmod.load(p)
+    cfg = cfgmod.load(p)
+    drivers.SOURCE_IP = cfg["network"]["source_ip"]
+    return p, cfg
 
 
 def _find(cfg, key):
@@ -82,6 +84,18 @@ def cmd_set_port(a):
     cfgmod.validate(cfg)
     cfgmod.save(p, cfg)
     print(f"Web port set to {a.port}. Restart the service to apply (sudo dps service restart).")
+
+
+def cmd_source_ip(a):
+    p, cfg = _load(a)
+    if a.ip is not None:
+        cfg["network"]["source_ip"] = "" if a.ip == "auto" else a.ip
+        try:
+            cfgmod.validate(cfg)
+        except ValueError as e:
+            sys.exit(str(e))
+        cfgmod.save(p, cfg)
+    print("source ip:", cfg["network"]["source_ip"] or "(OS default)")
 
 
 def cmd_list(a):
@@ -151,6 +165,14 @@ def cmd_schedule(a):
         print(f"{d}  {s['on']} - {s['off']}" if s["enabled"] else f"{d}  (off all day)")
 
 
+def cmd_automation(a):
+    p, cfg = _load(a)
+    if a.state:
+        cfg["automation"]["enabled"] = a.state == "on"
+        cfgmod.save(p, cfg)
+    print("automation:", "ENABLED" if cfg["automation"]["enabled"] else "PAUSED")
+
+
 def cmd_probe(a):
     d = {"driver": a.driver, "ip": a.host, "port": a.port or cfgmod.DEFAULT_PORTS[a.driver],
          "display_id": a.id, "mac": ""}
@@ -168,6 +190,7 @@ def main(argv=None):
     sub.add_parser("check-config", help="validate config").set_defaults(f=cmd_check)
     s = sub.add_parser("set-pin", help="set the web UI PIN"); s.add_argument("pin", nargs="?"); s.set_defaults(f=cmd_set_pin)
     s = sub.add_parser("set-port", help="set web UI port"); s.add_argument("port", type=int); s.add_argument("--bind"); s.set_defaults(f=cmd_set_port)
+    s = sub.add_parser("source-ip", help="show/set local IP used to reach displays (or 'auto')"); s.add_argument("ip", nargs="?"); s.set_defaults(f=cmd_source_ip)
     sub.add_parser("list", help="list displays").set_defaults(f=cmd_list)
     s = sub.add_parser("add", help="add a display"); s.add_argument("name"); s.add_argument("ip")
     s.add_argument("--driver", choices=cfgmod.DRIVERS, default="samsung_mdc"); s.add_argument("--port", type=int)
@@ -178,6 +201,7 @@ def main(argv=None):
     s = sub.add_parser("schedule", help="show/set weekly schedule")
     s.add_argument("--days", default="weekdays", help="all|weekdays|weekend|mon,tue,..."); s.add_argument("--on", default="06:00"); s.add_argument("--off", default="20:00")
     s.add_argument("--set", nargs="?", const="hours", choices=["hours", "off-all"], help="apply hours (or disable) for --days"); s.set_defaults(f=cmd_schedule)
+    s = sub.add_parser("automation", help="show/pause/resume all scheduled actions"); s.add_argument("state", nargs="?", choices=["on", "off"]); s.set_defaults(f=cmd_automation)
     s = sub.add_parser("probe", help="ad-hoc test of a display"); s.add_argument("--driver", choices=cfgmod.DRIVERS, required=True)
     s.add_argument("--host", required=True); s.add_argument("--port", type=int); s.add_argument("--id", type=int, default=0); s.set_defaults(f=cmd_probe)
     a = ap.parse_args(argv)

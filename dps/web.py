@@ -62,11 +62,28 @@ def make_handler(svc):
                 raise ValueError("body too large")
             return json.loads(self.rfile.read(n) or b"{}")
 
+        def _via_proxy(self):
+            """True only for a request from a local reverse proxy (Caddy); forwarded headers are untrusted otherwise."""
+            try:
+                return ipaddress.ip_address(self.client_address[0]).is_loopback
+            except ValueError:
+                return False
+
+        def _client_ip(self):
+            xff = self.headers.get("X-Forwarded-For", "")
+            if self._via_proxy() and xff:
+                last = xff.split(",")[-1].strip()  # the proxy appends the address it saw
+                try:
+                    return str(ipaddress.ip_address(last))
+                except ValueError:
+                    pass
+            return self.client_address[0]
+
         def _allowed(self):
             cidrs = svc.cfg["web"].get("allowed_cidrs") or []
             if not cidrs:
                 return True
-            ip = ipaddress.ip_address(self.client_address[0])
+            ip = ipaddress.ip_address(self._client_ip())
             return any(ip in ipaddress.ip_network(c, strict=False) for c in cidrs)
 
         def _authed(self):
@@ -81,7 +98,7 @@ def make_handler(svc):
                 if method == "GET" and path == "/":
                     return self._send(200, page, "text/html; charset=utf-8")
                 if method == "GET" and path == "/healthz":
-                    return self._send(200, {"ok": True, "last_tick": svc.last_tick})
+                    return self._send(200, {"ok": True, "last_tick": svc.last_tick, "automation": svc.cfg["automation"]["enabled"]})
                 if method == "POST" and path == "/api/login":
                     return self._login()
                 if not self._authed():
@@ -100,7 +117,7 @@ def make_handler(svc):
 
         # -- routes
         def _login(self):
-            ip = self.client_address[0]
+            ip = self._client_ip()
             n, t0 = _fails.get(ip, (0, 0))
             if n >= 5 and time.time() - t0 < 60:
                 return self._send(429, {"error": "too many attempts, wait a minute"})
@@ -109,7 +126,9 @@ def make_handler(svc):
             pin = str(self._json().get("pin", ""))
             if cfgmod.check_pin(pin, svc.cfg["pin_hash"]):
                 _fails.pop(ip, None)
-                cookie = f"dps={make_token(svc.cfg['session_secret'])}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_S}"
+                https = self._via_proxy() and self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+                cookie = (f"dps={make_token(svc.cfg['session_secret'])}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_S}"
+                          + ("; Secure" if https else ""))
                 return self._send(200, {"ok": True}, headers=[("Set-Cookie", cookie)])
             _fails[ip] = (n + 1, t0 if n else time.time())
             time.sleep(0.5)
@@ -120,6 +139,11 @@ def make_handler(svc):
                 return self._send(200, svc.snapshot())
             if method == "POST" and path == "/api/logout":
                 return self._send(200, {"ok": True}, headers=[("Set-Cookie", "dps=; Path=/; Max-Age=0")])
+            if method == "POST" and path == "/api/automation":
+                en = bool(self._json()["enabled"])
+                svc.mutate(lambda c: c["automation"].__setitem__("enabled", en))
+                svc.event("user", "ALL", "AUTOMATION " + ("ENABLED" if en else "PAUSED"), "OK")
+                return self._send(200, {"ok": True})
             if method == "POST" and path == "/api/schedule":
                 body = self._json()
                 def f(cfg):
