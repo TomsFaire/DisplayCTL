@@ -60,3 +60,34 @@ def test_source_ip_validation():
     cfg = C.default_config(); cfg["network"]["source_ip"] = "10.7.130.62"; C.validate(cfg)
     cfg["network"]["source_ip"] = "nope"
     with pytest.raises(ValueError): C.validate(cfg)
+
+def test_proxy_headers_and_secure_cookie(tmp_path):
+    import http.client, json
+    from dps import web
+    p = tmp_path / "c.json"
+    cfg = C.default_config(); cfg["web"]["allowed_cidrs"] = ["10.7.0.0/16"]
+    cfg["pin_hash"] = C.hash_pin("123456"); C.save(p, cfg)
+    svc = S.Service(p)
+    import socket
+    with socket.socket() as t:
+        t.bind(("127.0.0.1", 0)); port = t.getsockname()[1]
+    srv = web.serve(svc, "127.0.0.1", port); threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def post(headers):
+        c = http.client.HTTPConnection("127.0.0.1", port)
+        c.request("POST", "/api/login", json.dumps({"pin": "123456"}), headers)
+        r = c.getresponse(); r.read(); return r.status, r.getheader("Set-Cookie") or ""
+    try:
+        assert post({"X-Forwarded-For": "8.8.8.8"})[0] == 403           # client outside allowed_cidrs, seen via proxy
+        st, ck = post({"X-Forwarded-For": "10.7.1.1", "X-Forwarded-Proto": "https"})
+        assert st == 200 and "Secure" in ck and "HttpOnly" in ck
+        # a client-supplied XFF chain: only the address the proxy appended counts
+        assert post({"X-Forwarded-For": "10.7.1.1, 8.8.8.8"})[0] == 403
+        # lockout is per forwarded client, not global for the proxy
+        bad = lambda ip: http.client.HTTPConnection("127.0.0.1", port)
+        for _ in range(5):
+            c = bad(0); c.request("POST", "/api/login", json.dumps({"pin": "x"}), {"X-Forwarded-For": "10.7.2.2"}); c.getresponse().read()
+        assert post({"X-Forwarded-For": "10.7.3.3"})[0] == 200
+        assert post({"X-Forwarded-For": "10.7.2.2"})[0] == 429
+    finally:
+        srv.shutdown()

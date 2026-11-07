@@ -49,6 +49,17 @@ Manual On/Off holds until the next scheduled change.
 ## Multi-homed hosts / subnet changes
 Set `network.source_ip` in the config (or `dps source-ip <ip>`, or env `DPS_SOURCE_IP`) to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
 
+## HTTPS on :443 (Caddy, self-signed internal CA)
+```
+brew install caddy                          # as your normal user
+sudo deploy/macos/install.sh <PIN>          # redeploys the app (needed once for proxy-header support)
+sudo deploy/macos/install-https.sh [IP]     # default IP = en0; serves https://IP/ and https://localhost/
+```
+Caddy runs as `_dps` (`com.faire.dps-caddy`), terminates TLS, and proxies to `127.0.0.1:<web.port>`. Once HTTPS answers, the script rebinds dps to
+loopback so plain HTTP is no longer reachable from the network. dps trusts `X-Forwarded-For/-Proto` **only from loopback** (per-client lockout,
+`allowed_cidrs`, `Secure` cookie). Distribute `/usr/local/var/caddy/pki/authorities/local/root.crt` to clients via MDM to avoid the browser warning.
+The cert is tied to the IP — give the host a DHCP reservation, or re-run `install-https.sh <new-ip>`.
+
 ## Security notes
 PIN login (scrypt-hashed, 5 attempts/min/IP lockout), signed HttpOnly session cookie, CSRF header on all writes, optional `web.allowed_cidrs`.
 Plain HTTP — put it behind TLS/Caddy if the network isn't trusted. `/healthz` is unauthenticated and returns no secrets.

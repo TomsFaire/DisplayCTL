@@ -21,7 +21,7 @@ fi
 mkdir -p /opt/dps "$CONF" "$DATA"
 PY=${PYTHON:-$(command -v python3.13 || command -v python3.12 || command -v python3.11 || command -v python3)}
 [ -d /opt/dps/venv ] || "$PY" -m venv /opt/dps/venv
-/opt/dps/venv/bin/pip install --quiet --upgrade "$SRC"
+/opt/dps/venv/bin/pip install --quiet --upgrade --force-reinstall --no-deps "$SRC"
 ln -sf /opt/dps/venv/bin/dps /usr/local/bin/dps
 
 [ -f "$CONF/config.json" ] || DPS_CONFIG="$CONF/config.json" /opt/dps/venv/bin/dps check-config >/dev/null
