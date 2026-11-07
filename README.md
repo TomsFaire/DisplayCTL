@@ -10,7 +10,7 @@ sudo deploy/macos/install.sh <PIN>       # <PIN> = 4-12 digit UI PIN (omit to se
 Creates a hidden `_dps` user, installs to `/opt/dps`, config in `/usr/local/etc/dps/config.json`, logs in `/usr/local/var/dps/`,
 and registers a LaunchDaemon (`com.faire.dps`) with RunAtLoad + KeepAlive. Linux: `sudo deploy/linux/install.sh <PIN>`.
 
-Open `http://<mac-hostname>:8085`, enter the PIN.
+Open `http://<mac-hostname>:8000`, enter the PIN.
 
 ## Web UI
 * **Displays** — room, IP, power state, status, last action; On / Off / Test (shows raw TX/RX bytes) / Edit / remove; All On / All Off.

@@ -18,7 +18,7 @@ _lock = threading.RLock()
 def default_config():
     return {
         "site": {"name": "Office", "timezone": "America/New_York"},
-        "web": {"bind": "0.0.0.0", "port": 8085, "allowed_cidrs": []},
+        "web": {"bind": "0.0.0.0", "port": 8000, "allowed_cidrs": []},
         "automation": {"enabled": True},
         "network": {"source_ip": ""},   # local address used to reach displays ("" = OS default)
         "pin_hash": None,
