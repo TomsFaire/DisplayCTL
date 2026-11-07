@@ -99,6 +99,20 @@ def cmd_set_port(a):
     print(f"Web port set to {a.port}. Restart the service to apply (macOS: sudo launchctl kickstart -k system/com.faire.dps; Linux: sudo systemctl restart dps).")
 
 
+def cmd_timezone(a):
+    p, cfg = _load(a)
+    if a.zone is None:
+        print(f"timezone: {cfg['site']['timezone']}  (system: {cfgmod.system_timezone()})")
+        return
+    cfg["site"]["timezone"] = cfgmod.system_timezone() if a.zone == "auto" else a.zone
+    try:
+        cfgmod.validate(cfg)
+    except ValueError as e:
+        sys.exit(str(e))
+    cfgmod.save(p, cfg)
+    print(f"Timezone set to {cfg['site']['timezone']} (applies on the next config reload, no restart needed).")
+
+
 def cmd_source_ip(a):
     p, cfg = _load(a)
     if a.ip is not None:
@@ -203,6 +217,7 @@ def main(argv=None):
     sub.add_parser("check-config", help="validate config").set_defaults(f=cmd_check)
     s = sub.add_parser("set-pin", help="set the web UI PIN"); s.add_argument("pin", nargs="?"); s.set_defaults(f=cmd_set_pin)
     s = sub.add_parser("set-port", help="set web UI port ('auto' = first free port from --start, default 8000)"); s.add_argument("port", help="number or 'auto'"); s.add_argument("--start", type=int, default=8000); s.add_argument("--bind"); s.set_defaults(f=cmd_set_port)
+    s = sub.add_parser("set-timezone", help="show/set the schedule timezone ('auto' = follow this machine)"); s.add_argument("zone", nargs="?", help="IANA name e.g. America/Los_Angeles, or 'auto'"); s.set_defaults(f=cmd_timezone)
     s = sub.add_parser("source-ip", help="show/set local IP used to reach displays (or 'auto')"); s.add_argument("ip", nargs="?"); s.set_defaults(f=cmd_source_ip)
     sub.add_parser("list", help="list displays").set_defaults(f=cmd_list)
     s = sub.add_parser("add", help="add a display"); s.add_argument("name"); s.add_argument("ip")

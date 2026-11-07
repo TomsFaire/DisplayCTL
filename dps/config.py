@@ -15,9 +15,33 @@ DEFAULT_PORTS = {"samsung_mdc": 1515, "lg_signage": 9761}
 _lock = threading.RLock()
 
 
+def system_timezone():
+    """IANA name of the host's timezone (TZ env, /etc/localtime link, /etc/timezone); 'UTC' if undetectable."""
+    from zoneinfo import ZoneInfo
+    cands = [os.environ.get("TZ", "").lstrip(":")]
+    try:
+        link = os.path.realpath("/etc/localtime")
+        if "zoneinfo/" in link:
+            cands.append(link.split("zoneinfo/", 1)[1])
+    except OSError:
+        pass
+    try:
+        cands.append(Path("/etc/timezone").read_text().strip())
+    except OSError:
+        pass
+    for name in cands:
+        if name:
+            try:
+                ZoneInfo(name)
+                return name
+            except Exception:
+                continue
+    return "UTC"
+
+
 def default_config():
     return {
-        "site": {"name": "Office", "timezone": "America/New_York"},
+        "site": {"name": "Office", "timezone": system_timezone()},
         "web": {"bind": "0.0.0.0", "port": 8000, "allowed_cidrs": []},
         "automation": {"enabled": True},
         "network": {"source_ip": ""},   # local address used to reach displays ("" = OS default)
