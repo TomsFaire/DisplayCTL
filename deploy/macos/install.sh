@@ -24,7 +24,7 @@ PY=${PYTHON:-$(command -v python3.13 || command -v python3.12 || command -v pyth
 /opt/dps/venv/bin/pip install --quiet --upgrade --force-reinstall --no-deps "$SRC"
 mkdir -p /opt/dps/bin /usr/local/bin; ln -sf /opt/dps/venv/bin/dps /opt/dps/bin/dps; ln -sf /opt/dps/bin/dps /usr/local/bin/dps
 
-[ -f "$CONF/config.json" ] || DPS_CONFIG="$CONF/config.json" /opt/dps/venv/bin/dps check-config >/dev/null
+[ -f "$CONF/config.json" ] || { DPS_CONFIG="$CONF/config.json" /opt/dps/venv/bin/dps check-config >/dev/null; DPS_CONFIG="$CONF/config.json" /opt/dps/venv/bin/dps set-port auto; }   # fresh install: pick a free port (8000, 8001, ...)
 chown -R _dps:staff "$CONF" "$DATA"; chmod 700 "$CONF"; chmod 600 "$CONF/config.json"
 export DPS_CONFIG="$CONF/config.json"
 if [ -n "${1:-}" ]; then dps set-pin "$1"; fi

@@ -91,3 +91,32 @@ def test_proxy_headers_and_secure_cookie(tmp_path):
         assert post({"X-Forwarded-For": "10.7.2.2"})[0] == 429
     finally:
         srv.shutdown()
+
+
+def test_find_free_port_skips_busy_ports():
+    import socket
+    held = []
+    try:
+        s = socket.socket(); s.bind(("0.0.0.0", 0)); s.listen(); held.append(s)
+        busy = s.getsockname()[1]
+        assert C.port_in_use(busy)
+        got = C.find_free_port(busy)
+        assert got > busy and not C.port_in_use(got)
+        s2 = socket.socket(); s2.bind(("127.0.0.1", got)); s2.listen(); held.append(s2)   # loopback-only listener (e.g. another app)
+        assert C.find_free_port(busy) > got
+    finally:
+        for h in held: h.close()
+
+
+def test_set_port_auto_moves_off_busy_port(tmp_path):
+    import socket, argparse
+    from dps import cli
+    p = tmp_path / "config.json"
+    cfg = C.default_config(); C.save(p, cfg)
+    s = socket.socket(); s.bind(("0.0.0.0", 0)); s.listen()
+    busy = s.getsockname()[1]
+    try:
+        cli.cmd_set_port(argparse.Namespace(config=str(p), port="auto", start=busy, bind=None))
+        assert C.load(p)["web"]["port"] > busy
+    finally:
+        s.close()

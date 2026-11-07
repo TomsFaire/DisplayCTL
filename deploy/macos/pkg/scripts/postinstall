@@ -17,7 +17,7 @@ fi
 
 mkdir -p "$CONF" "$DATA" /usr/local/bin
 ln -sf /opt/dps/bin/dps /usr/local/bin/dps
-[ -f "$CONF/config.json" ] || DPS_CONFIG="$CONF/config.json" /opt/dps/bin/dps check-config >/dev/null
+[ -f "$CONF/config.json" ] || { DPS_CONFIG="$CONF/config.json" /opt/dps/bin/dps check-config >/dev/null; DPS_CONFIG="$CONF/config.json" /opt/dps/bin/dps set-port auto; }   # fresh install: pick a free port (8000, 8001, ...)
 chown -R _dps:staff "$CONF" "$DATA"; chmod 700 "$CONF"; chmod 600 "$CONF/config.json"
 rm -rf /opt/dps/venv   # superseded by the bundled runtime (left over from a source install.sh)
 

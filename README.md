@@ -22,7 +22,7 @@ sudo deploy/macos/install.sh <PIN>       # <PIN> = 4-12 digit UI PIN (omit to se
 Creates a hidden `_dps` user, installs to `/opt/dps`, config in `/usr/local/etc/dps/config.json`, logs in `/usr/local/var/dps/`,
 and registers a LaunchDaemon (`com.faire.dps`) with RunAtLoad + KeepAlive. Linux: `sudo deploy/linux/install.sh <PIN>`.
 
-Open `http://<mac-hostname>:8000`, enter the PIN.
+Open `http://<mac-hostname>:<port>`, enter the PIN. The installer picks the first free port starting at 8000 (so it won't collide with e.g. Bitfocus Companion); the installer prints it, or check `dps check-config`.
 
 ## Web UI
 * **Displays** — room, IP, power state, status, last action; On / Off / Test (shows raw TX/RX bytes) / Edit / remove; All On / All Off.
@@ -46,6 +46,7 @@ dps automation [on|off]           # show / resume / pause ALL scheduled actions 
 dps source-ip [IP|auto]           # show/set the local IP used to reach displays
 dps check-config
 ```
+`dps set-port auto` picks the first free port from 8000 upward (a fresh install does this automatically; upgrades keep the configured port).
 Port can also be set by `dps run --port N`, `DPS_PORT`, or `web.port` in the config. Config edits (file or UI) hot-reload; port/bind changes need a restart.
 
 ## How scheduling works

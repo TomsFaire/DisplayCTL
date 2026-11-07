@@ -7,6 +7,7 @@ mkdir -p /opt/dps /etc/dps /var/lib/dps
 [ -d /opt/dps/venv ] || python3 -m venv /opt/dps/venv
 /opt/dps/venv/bin/pip install --quiet --upgrade "$SRC"
 ln -sf /opt/dps/venv/bin/dps /usr/local/bin/dps
+[ -f /etc/dps/config.json ] || { DPS_CONFIG=/etc/dps/config.json dps check-config >/dev/null; DPS_CONFIG=/etc/dps/config.json dps set-port auto; }   # fresh install: pick a free port
 DPS_CONFIG=/etc/dps/config.json dps check-config >/dev/null
 chown -R dps:dps /etc/dps /var/lib/dps; chmod 600 /etc/dps/config.json
 [ -z "${1:-}" ] || DPS_CONFIG=/etc/dps/config.json dps set-pin "$1"
