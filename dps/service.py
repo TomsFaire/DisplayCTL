@@ -55,6 +55,7 @@ class Service:
         self.lock = threading.RLock()
         self.cfg = cfgmod.load(path)
         self._mtime = path.stat().st_mtime
+        drivers.SOURCE_IP = self.cfg["network"]["source_ip"]
         self.state = {}
         self.last_intended = {}
         self.attempts = collections.defaultdict(int)
@@ -79,6 +80,7 @@ class Service:
                 new = cfgmod.load(self.path)
                 with self.lock:
                     self.cfg, self._mtime = new, m
+                drivers.SOURCE_IP = new["network"]["source_ip"]
                 log.info("config reloaded")
         except Exception as e:  # bad edit: keep running on the last good config
             log.error("config reload failed, keeping previous: %s", e)

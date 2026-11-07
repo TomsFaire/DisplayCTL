@@ -47,7 +47,7 @@ Manual On/Off holds until the next scheduled change.
 - Global Caché serial adapters and per-day exceptions/holidays are **not in the MVP**.
 
 ## Multi-homed hosts / subnet changes
-Set `DPS_SOURCE_IP=<local ip>` to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
+Set `network.source_ip` in the config (or `dps source-ip <ip>`, or env `DPS_SOURCE_IP`) to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
 
 ## Security notes
 PIN login (scrypt-hashed, 5 attempts/min/IP lockout), signed HttpOnly session cookie, CSRF header on all writes, optional `web.allowed_cidrs`.

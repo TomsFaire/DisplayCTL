@@ -8,6 +8,9 @@ import time
 from dataclasses import dataclass
 
 
+SOURCE_IP = ""  # set from config network.source_ip (env DPS_SOURCE_IP overrides)
+
+
 @dataclass
 class Result:
     ok: bool
@@ -21,7 +24,7 @@ class Result:
 
 def _txrx(host, port, data, timeout):
     t0 = time.time()
-    src = os.environ.get("DPS_SOURCE_IP")  # optional: force the local address (multi-homed hosts)
+    src = os.environ.get("DPS_SOURCE_IP") or SOURCE_IP  # optional: force the local address
     with socket.create_connection((host, port), timeout=timeout,
                                   source_address=(src, 0) if src else None) as s:
         s.settimeout(timeout)

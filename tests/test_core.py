@@ -54,3 +54,9 @@ def test_automation_pause(tmp_path):
     svc.pool = __import__("concurrent.futures").futures.ThreadPoolExecutor(2)
     svc.tick(); svc.pool.shutdown(wait=True)
     assert len(calls) == 1
+
+def test_source_ip_validation():
+    import pytest
+    cfg = C.default_config(); cfg["network"]["source_ip"] = "10.7.130.62"; C.validate(cfg)
+    cfg["network"]["source_ip"] = "nope"
+    with pytest.raises(ValueError): C.validate(cfg)

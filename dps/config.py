@@ -20,6 +20,7 @@ def default_config():
         "site": {"name": "Office", "timezone": "America/New_York"},
         "web": {"bind": "0.0.0.0", "port": 8085, "allowed_cidrs": []},
         "automation": {"enabled": True},
+        "network": {"source_ip": ""},   # local address used to reach displays ("" = OS default)
         "pin_hash": None,
         "session_secret": secrets.token_hex(32),
         "schedule": {d: {"enabled": d not in ("sat", "sun"), "on": "06:00", "off": "20:00"} for d in DAYS},
@@ -50,6 +51,13 @@ def validate(cfg):
         ZoneInfo(cfg["site"]["timezone"])
     except Exception:
         raise ValueError(f"bad timezone: {cfg['site'].get('timezone')!r}")
+    src = cfg["network"].get("source_ip", "")
+    if src:
+        import ipaddress
+        try:
+            ipaddress.ip_address(src)
+        except ValueError:
+            raise ValueError(f"bad network.source_ip: {src!r}")
     port = cfg["web"]["port"]
     if not isinstance(port, int) or not 1 <= port <= 65535:
         raise ValueError(f"bad web port: {port!r}")
@@ -85,6 +93,7 @@ def load(path):
         base[k].update(cfg.get(k, {}))
     base["schedule"].update(cfg.get("schedule", {}))
     base["automation"].update(cfg.get("automation", {}))
+    base["network"].update(cfg.get("network", {}))
     base["pin_hash"] = cfg.get("pin_hash")
     base["displays"] = cfg.get("displays", [])
     return validate(base)
