@@ -9,3 +9,8 @@ Icon
 Icon?
 local/
 build/
+.env
+.env.local
+.env.*.local
+.claude/plans/
+HANDOFF.md

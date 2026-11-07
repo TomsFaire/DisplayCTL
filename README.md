@@ -1,9 +1,21 @@
+<p align="center"><img src="assets/icon.png" width="128" alt="DisplayCTL icon"></p>
+
 # DisplayCTL (dps) — display power scheduler, MVP
 
 Turns conference-room displays (Samsung MDC, LG signage) on/off on a weekly schedule, with a web UI and an SSH-friendly CLI.
 Standard library only — no third-party runtime dependencies.
 
-## Install (macOS, starts at boot before login)
+![DisplayCTL dashboard](docs/screenshots/dashboard.png)
+*Web UI with demo data: per-display On/Off/Test, bulk actions, weekly schedule and activity log.*
+
+## Install (macOS, recommended): DMG from a release
+Download `DisplayCTL-<version>-arm64.dmg` (Apple silicon) or `-x86_64.dmg` (Intel) from the
+[latest release](https://github.com/TomsFaire/DisplayCTL/releases/latest) (`uname -m` tells you which), open it and double-click the `.pkg`.
+Python is bundled; nothing needs to be pre-installed. Builds are **unsigned/not notarized**: right-click > Open, or allow via MDM.
+Then set the PIN: `sudo DPS_CONFIG=/usr/local/etc/dps/config.json dps set-pin`. Details in "macOS installer (DMG)" below.
+
+## Install from source (macOS / Linux)
+
 ```
 sudo deploy/macos/install.sh <PIN>       # <PIN> = 4-12 digit UI PIN (omit to set later)
 ```
@@ -30,6 +42,8 @@ dps schedule                      # show
 dps schedule --set --days weekdays --on 06:00 --off 20:00
 dps schedule --set off-all --days sat,sun
 dps probe --driver samsung_mdc --host 10.20.70.31 --id 0    # ad-hoc test, no config
+dps automation [on|off]           # show / resume / pause ALL scheduled actions (manual control still works)
+dps source-ip [IP|auto]           # show/set the local IP used to reach displays
 dps check-config
 ```
 Port can also be set by `dps run --port N`, `DPS_PORT`, or `web.port` in the config. Config edits (file or UI) hot-reload; port/bind changes need a restart.
@@ -38,6 +52,8 @@ Port can also be set by `dps run --port N`, `DPS_PORT`, or `web.port` in the con
 Every 15 s the service computes whether displays *should* be on (per-day window, site timezone) and sends explicit ON/OFF only when that
 changes — and once at startup, so a 07:10 reboot still turns displays ON. Failed commands are retried (bounded) and shown as FAILED.
 Manual On/Off holds until the next scheduled change.
+**Pause automation** (UI button or `dps automation off`) stops the scheduler from sending anything, e.g. during AV work; resume the same way.
+After a power command the service polls status to confirm the display really changed state; **Check all** in the UI queries every display.
 
 ## Commissioning checklist (every item is `# VERIFY`)
 - Samsung: enable **Network Standby** so IP power-on works. Newer firmware may require secured MDC (TLS+PIN) — **not implemented in MVP**.
@@ -48,6 +64,17 @@ Manual On/Off holds until the next scheduled change.
 
 ## Multi-homed hosts / subnet changes
 Set `network.source_ip` in the config (or `dps source-ip <ip>`, or env `DPS_SOURCE_IP`) to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
+
+## macOS installer (DMG)
+Each release has `DisplayCTL-<version>-arm64.dmg` and `-x86_64.dmg` (pick the one matching the Mac; `uname -m`). Open the DMG, double-click the `.pkg`.
+It bundles Python (pinned in `deploy/macos/bundled-python.env`, checksum-verified at build time), so nothing needs to be pre-installed, and does what
+`install.sh` does: `_dps` user, `/opt/dps`, config in `/usr/local/etc/dps`, LaunchDaemon `com.faire.dps`. Upgrading keeps config, PIN and data.
+After a first install run `sudo DPS_CONFIG=/usr/local/etc/dps/config.json dps set-pin`; optional HTTPS: `sudo /opt/dps/share/install-https.sh`.
+Builds are **unsigned/not notarized**: use right-click > Open, or allow it via MDM. Uninstall: `sudo /opt/dps/share/uninstall.sh [--purge]`.
+
+Releasing: bump `version` in `pyproject.toml`, merge, then `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` checks the tag
+matches the version, runs tests, builds both DMGs (`deploy/macos/build-pkg.sh`, also runnable locally), and attaches them plus `SHA256SUMS` to the release.
+To rebuild for an existing tag: Actions > release > Run workflow.
 
 ## HTTPS on :443 (Caddy, self-signed internal CA)
 ```
