@@ -49,6 +49,17 @@ Manual On/Off holds until the next scheduled change.
 ## Multi-homed hosts / subnet changes
 Set `network.source_ip` in the config (or `dps source-ip <ip>`, or env `DPS_SOURCE_IP`) to force the address used to reach displays (e.g. when a display's netmask excludes the host's primary IP).
 
+## macOS installer (DMG)
+Each release has `DisplayCTL-<version>-arm64.dmg` and `-x86_64.dmg` (pick the one matching the Mac; `uname -m`). Open the DMG, double-click the `.pkg`.
+It bundles Python (pinned in `deploy/macos/bundled-python.env`, checksum-verified at build time), so nothing needs to be pre-installed, and does what
+`install.sh` does: `_dps` user, `/opt/dps`, config in `/usr/local/etc/dps`, LaunchDaemon `com.faire.dps`. Upgrading keeps config, PIN and data.
+After a first install run `sudo DPS_CONFIG=/usr/local/etc/dps/config.json dps set-pin`; optional HTTPS: `sudo /opt/dps/share/install-https.sh`.
+Builds are **unsigned/not notarized**: use right-click > Open, or allow it via MDM. Uninstall: `sudo /opt/dps/share/uninstall.sh [--purge]`.
+
+Releasing: bump `version` in `pyproject.toml`, merge, then `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` checks the tag
+matches the version, runs tests, builds both DMGs (`deploy/macos/build-pkg.sh`, also runnable locally), and attaches them plus `SHA256SUMS` to the release.
+To rebuild for an existing tag: Actions > release > Run workflow.
+
 ## HTTPS on :443 (Caddy, self-signed internal CA)
 ```
 brew install caddy                          # as your normal user

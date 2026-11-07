@@ -1,0 +1,62 @@
+name: release
+
+# Builds the macOS installer DMGs (arm64 + x86_64, bundled Python) and attaches them to the GitHub release.
+#  - push a tag vX.Y.Z  -> build and attach (creates the release if it does not exist yet)
+#  - manual run         -> pick an existing tag to (re)build and attach
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build (must contain deploy/macos/build-pkg.sh)"
+        required: true
+
+permissions:
+  contents: write   # create release / upload assets
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.13" }
+
+      - name: Tag must match pyproject version
+        run: |
+          VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' pyproject.toml)
+          [ "$TAG" = "v$VERSION" ] || { echo "::error::tag $TAG != pyproject version $VERSION"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: |
+          pip install -e ".[dev]"
+          pytest -q
+
+      - name: Build DMGs
+        run: |
+          for arch in arm64 x86_64; do
+            ./deploy/macos/build-pkg.sh --arch "$arch" --version "$VERSION" --out dist
+          done
+          (cd dist && shasum -a 256 *.dmg | tee SHA256SUMS)
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: DisplayCTL-${{ env.VERSION }}-dmg
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Attach to release
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "DisplayCTL $TAG" --generate-notes
+          gh release upload "$TAG" dist/* --clobber

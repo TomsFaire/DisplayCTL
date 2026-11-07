@@ -1,0 +1,28 @@
+#!/bin/bash
+# Runs as root after the payload lands in /opt/dps. Idempotent; keeps existing config, PIN and data on upgrade.
+set -euo pipefail
+PLIST=/Library/LaunchDaemons/com.faire.dps.plist
+CONF=/usr/local/etc/dps; DATA=/usr/local/var/dps
+
+if ! dscl . -read /Users/_dps >/dev/null 2>&1; then
+  UID_NEW=$(( $(dscl . -list /Users UniqueID | awk '$2>=300 && $2<400 {print $2}' | sort -n | tail -1 || echo 299) + 1 ))
+  [ "$UID_NEW" -lt 300 ] && UID_NEW=300
+  dscl . -create /Users/_dps
+  dscl . -create /Users/_dps UserShell /usr/bin/false
+  dscl . -create /Users/_dps UniqueID "$UID_NEW"
+  dscl . -create /Users/_dps PrimaryGroupID 20
+  dscl . -create /Users/_dps NFSHomeDirectory /var/empty
+  dscl . -create /Users/_dps IsHidden 1
+fi
+
+mkdir -p "$CONF" "$DATA" /usr/local/bin
+ln -sf /opt/dps/bin/dps /usr/local/bin/dps
+[ -f "$CONF/config.json" ] || DPS_CONFIG="$CONF/config.json" /opt/dps/bin/dps check-config >/dev/null
+chown -R _dps:staff "$CONF" "$DATA"; chmod 700 "$CONF"; chmod 600 "$CONF/config.json"
+rm -rf /opt/dps/venv   # superseded by the bundled runtime (left over from a source install.sh)
+
+launchctl bootout system "$PLIST" 2>/dev/null || true
+install -m 644 -o root -g wheel /opt/dps/share/com.faire.dps.plist "$PLIST"
+launchctl bootstrap system "$PLIST"
+launchctl enable system/com.faire.dps
+exit 0
