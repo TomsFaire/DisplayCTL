@@ -5,10 +5,10 @@ Standard library only — no third-party runtime dependencies.
 
 ## Install (macOS, starts at boot before login)
 ```
-sudo deploy/macos/install.sh 1234        # 1234 = the UI PIN (omit to set later)
+sudo deploy/macos/install.sh <PIN>       # <PIN> = 4-12 digit UI PIN (omit to set later)
 ```
 Creates a hidden `_dps` user, installs to `/opt/dps`, config in `/usr/local/etc/dps/config.json`, logs in `/usr/local/var/dps/`,
-and registers a LaunchDaemon (`com.faire.dps`) with RunAtLoad + KeepAlive. Linux: `sudo deploy/linux/install.sh 1234`.
+and registers a LaunchDaemon (`com.faire.dps`) with RunAtLoad + KeepAlive. Linux: `sudo deploy/linux/install.sh <PIN>`.
 
 Open `http://<mac-hostname>:8085`, enter the PIN.
 
