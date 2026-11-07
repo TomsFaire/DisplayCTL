@@ -42,6 +42,7 @@ dps schedule                      # show
 dps schedule --set --days weekdays --on 06:00 --off 20:00
 dps schedule --set off-all --days sat,sun
 dps probe --driver samsung_mdc --host 10.20.70.31 --id 0    # ad-hoc test, no config
+dps set-timezone [auto|ZONE]      # schedule timezone; new installs follow the Mac's system timezone
 dps automation [on|off]           # show / resume / pause ALL scheduled actions (manual control still works)
 dps source-ip [IP|auto]           # show/set the local IP used to reach displays
 dps check-config

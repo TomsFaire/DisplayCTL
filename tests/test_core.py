@@ -120,3 +120,19 @@ def test_set_port_auto_moves_off_busy_port(tmp_path):
         assert C.load(p)["web"]["port"] > busy
     finally:
         s.close()
+
+
+def test_default_timezone_follows_system(monkeypatch):
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    assert C.system_timezone() == "America/Los_Angeles"
+    assert C.default_config()["site"]["timezone"] == "America/Los_Angeles"
+    monkeypatch.setenv("TZ", "Not/AZone")
+    assert C.system_timezone() != "Not/AZone"   # invalid TZ is ignored, falls back to the OS setting
+
+
+def test_set_timezone(tmp_path):
+    import argparse
+    from dps import cli
+    p = tmp_path / "config.json"; C.save(p, C.default_config())
+    cli.cmd_timezone(argparse.Namespace(config=str(p), zone="Europe/London"))
+    assert C.load(p)["site"]["timezone"] == "Europe/London"

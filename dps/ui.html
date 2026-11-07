@@ -32,7 +32,7 @@ input,select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-ra
 <input id="f_port" placeholder="Port (default)" size="12"><input id="f_did" placeholder="Display/Set ID" size="12" title="Samsung: 0 or 1 typical. LG: 1 typical">
 <input id="f_mac" placeholder="MAC (LG WoL, optional)" size="20"><input type="hidden" id="f_id"><button class="p">Save</button></form><div id="ferr" class="err"></div></div>
 <div class="card"><h2>Weekly schedule</h2><table><thead><tr><th>Day</th><th>Enabled</th><th>On</th><th>Off</th></tr></thead><tbody id="sched"></tbody></table>
-<div class="row" style="margin-top:10px"><button class="p" onclick="saveSched()">Save schedule</button><span id="serr" class="err"></span><span class="mut">Displays turn off on days that are disabled.</span></div></div>
+<div class="row" style="margin-top:10px"><button class="p" onclick="saveSched()">Save schedule</button><span id="serr" class="err"></span><span class="mut">Displays turn off on days that are disabled. Times are in <b id="tz"></b>.</span></div></div>
 <div class="card"><h2>Activity</h2><table><thead><tr><th>Time</th><th>By</th><th>Room</th><th>Action</th><th>Result</th><th>Error</th></tr></thead><tbody id="log"></tbody></table></div>
 </main></div>
 <script>
@@ -48,7 +48,7 @@ async function logout(){await api('/api/logout',{});show(false)}
 async function refresh(){try{S=await api('/api/state')}catch(e){return}show(true);render()}
 function render(){
  $('pause').classList.toggle('hide',S.automation);$('autob').textContent=S.automation?'⏸ Pause automation':'▶ Resume automation';$('autob').className=S.automation?'':'p';
- $('site').textContent=S.site.name+' displays';$('clock').textContent=S.now+' ('+S.site.timezone+')';
+ $('site').textContent=S.site.name+' displays';$('clock').textContent=S.now+' ('+S.site.timezone+')';$('tz').textContent=S.site.timezone;
  $('next').textContent=S.next_change?'Next: '+S.next_change.state+' '+S.next_change.at:'No upcoming change';
  $('rows').innerHTML=S.displays.map(d=>{const st=d.status;return `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.ip)}:${d.port}</td><td>${d.driver=='lg_signage'?'LG':'Samsung'}</td>
  <td><span class="pill ${d.power}">${d.power}</span></td><td>${d.reachable===false?'<span class="pill FAILED">UNREACHABLE</span>':'<span class="pill '+st+'">'+st+'</span>'}${d.error?' <span class="err" title="'+esc(d.error)+'">⚠</span>':''}</td>
