@@ -78,12 +78,25 @@ def cmd_set_pin(a):
 
 def cmd_set_port(a):
     p, cfg = _load(a)
+    if a.port == "auto":
+        cur = cfg["web"]["port"]
+        port = cfgmod.find_free_port(a.start, own=cur)
+        if port == a.start or port == cur:
+            print(f"Using web port {port}.")
+        else:
+            print(f"Port {a.start} is in use by another program; using free port {port}.")
+        a.port = port
+    else:
+        try:
+            a.port = int(a.port)
+        except ValueError:
+            sys.exit("port must be a number or 'auto'")
     cfg["web"]["port"] = a.port
     if a.bind:
         cfg["web"]["bind"] = a.bind
     cfgmod.validate(cfg)
     cfgmod.save(p, cfg)
-    print(f"Web port set to {a.port}. Restart the service to apply (sudo dps service restart).")
+    print(f"Web port set to {a.port}. Restart the service to apply (macOS: sudo launchctl kickstart -k system/com.faire.dps; Linux: sudo systemctl restart dps).")
 
 
 def cmd_source_ip(a):
@@ -189,7 +202,7 @@ def main(argv=None):
     s = sub.add_parser("run", help="run scheduler + web UI"); s.add_argument("--port", type=int); s.add_argument("--bind"); s.set_defaults(f=cmd_run)
     sub.add_parser("check-config", help="validate config").set_defaults(f=cmd_check)
     s = sub.add_parser("set-pin", help="set the web UI PIN"); s.add_argument("pin", nargs="?"); s.set_defaults(f=cmd_set_pin)
-    s = sub.add_parser("set-port", help="set web UI port"); s.add_argument("port", type=int); s.add_argument("--bind"); s.set_defaults(f=cmd_set_port)
+    s = sub.add_parser("set-port", help="set web UI port ('auto' = first free port from --start, default 8000)"); s.add_argument("port", help="number or 'auto'"); s.add_argument("--start", type=int, default=8000); s.add_argument("--bind"); s.set_defaults(f=cmd_set_port)
     s = sub.add_parser("source-ip", help="show/set local IP used to reach displays (or 'auto')"); s.add_argument("ip", nargs="?"); s.set_defaults(f=cmd_source_ip)
     sub.add_parser("list", help="list displays").set_defaults(f=cmd_list)
     s = sub.add_parser("add", help="add a display"); s.add_argument("name"); s.add_argument("ip")

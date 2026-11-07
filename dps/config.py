@@ -39,6 +39,41 @@ def config_path(explicit=None):
     return Path("config.json")
 
 
+def port_in_use(port):
+    """True if something already listens on this port (any interface, incl. loopback-only listeners)."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as c:
+        c.settimeout(0.5)
+        if c.connect_ex(("127.0.0.1", port)) == 0:
+            return True
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as b:   # no SO_REUSEADDR: conflicts must show up
+        try:
+            b.bind(("0.0.0.0", port))
+        except OSError:
+            return True
+    return False
+
+
+def is_dps(port):
+    """True if the listener on 127.0.0.1:port is a dps web UI (so it is us, not another app)."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=1) as r:
+            return "last_tick" in json.loads(r.read().decode())
+    except Exception:
+        return False
+
+
+def find_free_port(start=8000, own=None, limit=200):
+    """First port >= start that is free, counting `own` (the port we already serve on) as available."""
+    for port in range(start, min(start + limit, 65536)):
+        if port == own and is_dps(port):
+            return port
+        if not port_in_use(port):
+            return port
+    raise RuntimeError(f"no free port in {start}-{start + limit - 1}")
+
+
 def valid_time(s):
     return isinstance(s, str) and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", s) is not None
 
