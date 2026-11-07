@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Display Power Control</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--fg:#1c2330;--mut:#6b7585;--line:#e1e5eb;--ac:#2a5bd7;--ok:#1f9d55;--bad:#d64545;--warn:#d98e04}
+@media(prefers-color-scheme:dark){:root{--bg:#12151b;--card:#1b2029;--fg:#e6e9ef;--mut:#8b94a5;--line:#2b3240;--ac:#6d93f5}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+h1{font-size:17px;margin:0}h2{font-size:15px;margin:0 0 10px}main{max-width:1000px;margin:0 auto;padding:16px;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--mut);font-weight:500;font-size:12px}
+button{font:inherit;padding:5px 11px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--ac)}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}button.d{color:var(--bad)}
+input,select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.pill{padding:2px 9px;border-radius:99px;font-size:12px;color:#fff;background:var(--mut)}.ON{background:var(--ok)}.OFF{background:#5b6573}.FAILED{background:var(--bad)}.UNVERIFIED{background:var(--warn)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mut{color:var(--mut)}.err{color:var(--bad)}
+#login{max-width:280px;margin:18vh auto;text-align:center}#login input{width:100%;font-size:22px;text-align:center;letter-spacing:6px;margin:12px 0}
+.hide{display:none}pre{background:var(--bg);padding:8px;border-radius:6px;overflow:auto;margin:6px 0 0}
+</style></head><body>
+<div id="login" class="card hide"><h2>Display Power Control</h2><div class="mut">Enter PIN</div>
+<form onsubmit="login();return false"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" autofocus><button class="p" style="width:100%">Unlock</button></form><div id="lerr" class="err"></div></div>
+<div id="app" class="hide">
+<header><h1>🖥 <span id="site"></span></h1><div class="row"><span class="mut" id="clock"></span><button onclick="logout()">Lock</button></div></header>
+<main>
+<div class="card"><div class="row" style="justify-content:space-between"><h2>Displays</h2>
+<div class="row"><span class="mut" id="next"></span><button onclick="bulk('on')">All On</button><button onclick="bulk('off')">All Off</button></div></div>
+<table><thead><tr><th>Room</th><th>IP</th><th>Type</th><th>Power</th><th>Status</th><th>Last action</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<pre id="diag" class="hide"></pre></div>
+<div class="card"><h2>Add / edit display</h2><form class="row" onsubmit="addDisp();return false">
+<input id="f_name" placeholder="Room name" required><input id="f_ip" placeholder="IP address" required>
+<select id="f_driver"><option value="samsung_mdc">Samsung (MDC)</option><option value="lg_signage">LG</option></select>
+<input id="f_port" placeholder="Port (default)" size="12"><input id="f_did" placeholder="Display/Set ID" size="12" title="Samsung: 0 or 1 typical. LG: 1 typical">
+<input id="f_mac" placeholder="MAC (LG WoL, optional)" size="20"><input type="hidden" id="f_id"><button class="p">Save</button></form><div id="ferr" class="err"></div></div>
+<div class="card"><h2>Weekly schedule</h2><table><thead><tr><th>Day</th><th>Enabled</th><th>On</th><th>Off</th></tr></thead><tbody id="sched"></tbody></table>
+<div class="row" style="margin-top:10px"><button class="p" onclick="saveSched()">Save schedule</button><span id="serr" class="err"></span><span class="mut">Displays turn off on days that are disabled.</span></div></div>
+<div class="card"><h2>Activity</h2><table><thead><tr><th>Time</th><th>By</th><th>Room</th><th>Action</th><th>Result</th><th>Error</th></tr></thead><tbody id="log"></tbody></table></div>
+</main></div>
+<script>
+const DAYS=['mon','tue','wed','thu','fri','sat','sun'],NAMES={mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'};
+let S=null,schedBuilt=false,editing=false;
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(p,body){const r=await fetch(p,{method:body===undefined?'GET':'POST',headers:{'X-DPS':'1','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+ if(r.status===401){show(false);throw 0}const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
+function show(on){$('app').classList.toggle('hide',!on);$('login').classList.toggle('hide',on)}
+async function login(){try{await api('/api/login',{pin:$('pin').value});$('lerr').textContent='';$('pin').value='';show(true);refresh()}catch(e){if(e)$('lerr').textContent=e.message}}
+async function logout(){await api('/api/logout',{});show(false)}
+async function refresh(){try{S=await api('/api/state')}catch(e){return}show(true);render()}
+function render(){
+ $('site').textContent=S.site.name+' displays';$('clock').textContent=S.now+' ('+S.site.timezone+')';
+ $('next').textContent=S.next_change?'Next: '+S.next_change.state+' '+S.next_change.at:'No upcoming change';
+ $('rows').innerHTML=S.displays.map(d=>{const st=d.status;return `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.ip)}:${d.port}</td><td>${d.driver=='lg_signage'?'LG':'Samsung'}</td>
+ <td><span class="pill ${d.power}">${d.power}</span></td><td>${d.reachable===false?'<span class="pill FAILED">UNREACHABLE</span>':'<span class="pill '+st+'">'+st+'</span>'}${d.error?' <span class="err" title="'+esc(d.error)+'">⚠</span>':''}</td>
+ <td class="mut">${esc(d.last_action)} ${esc(d.last_time)}</td><td class="row"><button onclick="pw('${d.id}','on')">On</button><button onclick="pw('${d.id}','off')">Off</button><button onclick="test('${d.id}')">Test</button><button onclick="edit('${d.id}')">Edit</button><button class="d" onclick="del('${d.id}')">✕</button></td></tr>`}).join('')||'<tr><td class="mut">No displays yet — add one below.</td></tr>';
+ $('log').innerHTML=S.events.map(e=>`<tr><td>${e.t}</td><td>${e.actor}</td><td>${esc(e.display)}</td><td>${e.action}</td><td><span class="pill ${e.result}">${e.result}</span></td><td class="err">${esc(e.error)}</td></tr>`).join('');
+ if(!schedBuilt){schedBuilt=true;$('sched').innerHTML=DAYS.map(d=>{const s=S.schedule[d];return `<tr><td>${NAMES[d]}</td><td><input type="checkbox" id="e_${d}" ${s.enabled?'checked':''}></td><td><input type="time" id="on_${d}" value="${s.on}"></td><td><input type="time" id="off_${d}" value="${s.off}"></td></tr>`}).join('')}}
+async function pw(id,a){try{const r=await api(`/api/displays/${id}/${a}`,{});if(!r.ok)alert(r.error)}catch(e){e&&alert(e.message)}refresh()}
+async function bulk(a){if(!confirm('Turn ALL displays '+a.toUpperCase()+'?'))return;await Promise.all(S.displays.filter(d=>d.enabled!==false).map(d=>pw(d.id,a)))}
+async function test(id){const r=await api(`/api/displays/${id}/test`,{});const p=$('diag');p.classList.remove('hide');p.textContent=`${r.ok?'OK':'FAIL'}  power=${r.power}  ${r.ms}ms ${r.error}\nTX: ${r.tx}\nRX: ${r.rx}`}
+async function del(id){if(confirm('Remove this display?')){await api(`/api/displays/${id}/delete`,{});refresh()}}
+function edit(id){const d=S.displays.find(x=>x.id==id);$('f_id').value=id;$('f_name').value=d.name;$('f_ip').value=d.ip;$('f_driver').value=d.driver;$('f_port').value=d.port;$('f_did').value=d.display_id;$('f_mac').value=d.mac||'';$('f_name').focus()}
+async function addDisp(){const b={name:$('f_name').value,ip:$('f_ip').value,driver:$('f_driver').value,port:$('f_port').value,display_id:$('f_did').value||undefined,mac:$('f_mac').value};
+ try{const id=$('f_id').value;await api(id?`/api/displays/${id}/update`:'/api/displays',b);['f_id','f_name','f_ip','f_port','f_did','f_mac'].forEach(i=>$(i).value='');$('ferr').textContent='';refresh()}catch(e){e&&($('ferr').textContent=e.message)}}
+async function saveSched(){const b={};DAYS.forEach(d=>b[d]={enabled:$('e_'+d).checked,on:$('on_'+d).value,off:$('off_'+d).value});
+ try{await api('/api/schedule',b);$('serr').textContent='Saved ✓';$('serr').className='mut';setTimeout(()=>$('serr').textContent='',2500);refresh()}catch(e){e&&($('serr').textContent=e.message,$('serr').className='err')}}
+refresh();setInterval(refresh,5000);
+</script></body></html>

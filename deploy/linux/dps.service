@@ -1,0 +1,17 @@
+[Unit]
+Description=Display power scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=dps
+Environment=DPS_CONFIG=/etc/dps/config.json DPS_LOG_DIR=/var/lib/dps
+ExecStart=/opt/dps/venv/bin/dps run
+Restart=on-failure
+ProtectSystem=strict
+ReadWritePaths=/etc/dps /var/lib/dps
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
